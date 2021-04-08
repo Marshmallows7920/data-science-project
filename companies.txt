@@ -1,0 +1,66 @@
+Comapies Selected based on Forbes List by industry for each country.
+
+Format:
+
+#. Industry
+Country: Name: code
+
+1. Finance/Banking
+Canada: RBC: RY.TO
+France: AXA: CS.PA
+Germany: Deutsche Bank: DB
+Italy: Intesa Sanpaolo: ISP.MI
+Japan: Mitsubishi UFJ Financial Group: MUFG
+United Kingdom: HSBC: HSBC
+United States: JPMorgan Chase: JPM
+Singapore: DBS Bank: D05.SI
+Australia: Commonwealth Bank: CBA.AX
+Brazil: Banco Itaú Unibanco: ITUB
+
+2. Tourism Industries (Hotels, Transportations, Resorts)
+Canada: Canadian National Railway: CNR.TO
+France: AccorHotels: AC.PA
+Germany: Deutsche Post: DPW.DE
+Italy: Costa Crociere: CCL
+Japan: JTB Corporation: GBT.TO
+United Kingdom: Tui travel group: TUI1.DE
+United States: Expedia Group: EXPE
+Singapore: Singapore Airlines: C6L.SI
+Australia: Flight Centre: FLT.AX
+Brazil: LATAM Brasil: LTM.SN
+
+3. Energy (Oil, Gas, Electricity)
+Canada: Enbridge: ENB.TO
+France: Total S.A.: TOT
+Germany: Uniper: UN01.DE
+Italy: ENI: ENI.MI
+Japan: ENEOS Holdings: 5020.T
+United Kingdom: BP: BP
+United States: ExxonMobil: XOM
+Singapore: Tai Sin Electric Limited: 500.SI
+Australia: Woodside Petroleum: WPL.AX
+Brazil: Petrobras: PBR
+
+4. Food Industries - Retails, farms, fishing
+Canada: Alimentation Couche-Tard: ATD-B.TO
+France: Danone: BN.PA
+Germany: BASF: BAS.DE
+Italy: Barilla Group: OLE.MC
+Japan: Maruha Nichiro Corporation: 1333.T
+United Kingdom: Tesco: TSCO.L
+United States: Walmart: WMT
+Singapore: Wilmar International: F34.SI
+Australia: Wesfarmers: WES.AX
+Brazil: JBS S.A.: JBSS3.SA
+
+5. Manufacturing
+Canada: Magna International: MG.TO
+France: Renault: RNO.PA
+Germany: Siemens: SIE.DE
+Italy: Leonardo S.p.A.: LDO.MI
+Japan: Sony: SNE
+United Kingdom: Rio Tinto Group: RIO
+United States: john deere: DE
+Singapore: FLEX: FLEX
+Australia: BHP: BHP.AX
+Brazil: Vale: VALE
