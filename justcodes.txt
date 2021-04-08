@@ -1,0 +1,61 @@
+Comapies Selected based on Forbes List by industry for each country.
+
+1. Finance/Banking
+RY.TO
+CS.PA
+DB
+ISP.MI
+MUFG
+HSBC
+JPM
+D05.SI
+CBA.AX
+ITUB
+
+2. Tourism Industries (Hotels, Transportations, Resorts)
+CNR.TO
+AC.PA
+DPW.DE
+CCL
+GBT.TO
+TUI1.DE
+EXPE
+C6L.SI
+FLT.AX
+LTM.SN
+
+3. Energy (Oil, Gas, Electricity)
+ENB.TO
+TOT
+UN01.DE
+ENI.MI
+5020.T
+BP
+XOM
+500.SI
+Australia: Woodside Petroleum: WPL.AX
+PBR
+
+4. Food Industries - Retails, farms, fishing
+ATD-B.TO
+BN.PA
+BAS.DE
+OLE.MC
+1333.T
+TSCO.L
+WMT
+F34.SI
+WES.AX
+JBSS3.SA
+
+5. Manufacturing
+MG.TO
+RNO.PA
+SIE.DE
+LDO.MI
+SNE
+RIO
+DE
+FLEX
+BHP.AX
+VALE
