@@ -1,0 +1,59 @@
+1. Finance/Banking
+RY.TO	-	CAD: 1
+CS.PA	-	EUR: 0.67
+DB	-	USD: 0.80
+ISP.MI	-	EUR: 0.67
+MUFG	-	USD: 0.80
+HSBC	-	USD: 0.80
+JPM	-	USD: 0.80
+D05.SI	-	SGD: 1.07
+CBA.AX	-	AUD: 1.05	
+ITUB	-	USD: 0.80
+
+2. Tourism Industries (Hotels, Transportations, Resorts)
+CNR.TO	-	CAD: 1
+AC.PA	-	EUR: 0.67
+DPW.DE	-	EUR: 0.67
+CCL	-	USD: 0.80
+GBT.TO	-	CAD: 1
+TUI1.DE	-	EUR: 0.67
+EXPE	-	USD: 0.80
+C6L.SI	-	SGD: 1.07
+FLT.AX	-	AUD: 1.05
+LTM.SN	-	CLP: 567.33
+
+3. Energy (Oil, Gas, Electricity)
+ENB.TO	-	CAD: 1
+TOT	-	USD: 0.80
+UN01.DE	-	EUR: 0.67
+ENI.MI	-	EUR: 0.67
+5020.T	-	JPY: 87.52
+BP	-	USD: 0.80	
+XOM	-	USD: 0.80
+500.SI	-	SGD: 1.07
+WPL.AX	-	AUD: 1.05
+PBR	-	USD: 0.80
+
+4. Food Industries - Retails, farms, fishing
+ATD-B.TO-	CAD: 1	
+BN.PA	-	EUR: 0.67
+BAS.DE	-	EUR: 0.67
+OLE.MC	-	EUR: 0.67
+1333.T	-	JPY: 87.52
+TSCO.L	-	GBp: 0.58
+WMT	-	USD: 0.80
+F34.SI	-	SGD: 1.07	
+WES.AX	-	AUD: 1.05
+JBSS3.SA-	BRL: 4.53
+
+5. Manufacturing
+MG.TO	-	CAD: 1
+RNO.PA	-	EUR: 0.67
+SIE.DE	-	EUR: 0.67
+LDO.MI	-	EUR: 0.67
+SNE	-	USD: 0.80
+RIO	-	USD: 0.80
+DE	-	USD: 0.80
+FLEX	-	USD: 0.80
+BHP.AX	-	AUD: 1.05
+VALE	-	USD: 0.80

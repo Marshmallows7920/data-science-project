@@ -33,7 +33,7 @@ ENI.MI
 BP
 XOM
 500.SI
-Australia: Woodside Petroleum: WPL.AX
+WPL.AX
 PBR
 
 4. Food Industries - Retails, farms, fishing
