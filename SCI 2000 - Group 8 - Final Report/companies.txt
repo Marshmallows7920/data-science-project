@@ -1,0 +1,51 @@
+Industry:Country:Company Name:Company Code
+Finance:Canada:RBC:RY.TO
+Finance:France:AXA:CS.PA
+Finance:Germany:Deutsche Bank:DB
+Finance:Italy:Intesa Sanpaolo:ISP.MI
+Finance:Japan:Mitsubishi UFJ Financial Group:MUFG
+Finance:United Kingdom:HSBC:HSBC
+Finance:United States:JPMorgan Chase:JPM
+Finance:Singapore:DBS Bank:D05.SI
+Finance:Australia:Commonwealth Bank:CBA.AX
+Finance:Brazil:Banco Itaú Unibanco:ITUB
+Tourism:Canada:Canadian National Railway:CNR.TO
+Tourism:France:AccorHotels:AC.PA
+Tourism:Germany:Deutsche Post:DPW.DE
+Tourism:Italy:Costa Crociere:CCL
+Tourism:Japan:JTB Corporation:GBT.TO
+Tourism:United Kingdom:Tui travel group:TUI1.DE
+Tourism:United States:Expedia Group:EXPE
+Tourism:Singapore:Singapore Airlines:C6L.SI
+Tourism:Australia:Flight Centre:FLT.AX
+Tourism:Brazil:LATAM Brasil:LTM.SN
+Energy:Canada:Enbridge:ENB.TO
+Energy:France:Total S.A.:TOT
+Energy:Germany:Uniper:UN01.DE
+Energy:Italy:ENI:ENI.MI
+Energy:Japan:ENEOS Holdings:5020.T
+Energy:United Kingdom:BP:BP
+Energy:United States:ExxonMobil:XOM
+Energy:Singapore:Tai Sin Electric Limited:500.SI
+Energy:Australia:Woodside Petroleum:WPL.AX
+Energy:Brazil:Petrobras:PBR
+Food:Canada:Alimentation Couche-Tard:ATD-B.TO
+Food:France:Danone:BN.PA
+Food:Germany:BASF:BAS.DE
+Food:Italy:Barilla Group:OLE.MC
+Food:Japan:Maruha Nichiro Corporation:1333.T
+Food:United Kingdom:Tesco:TSCO.L
+Food:United States:Walmart:WMT
+Food:Singapore:Wilmar International:F34.SI
+Food:Australia:Wesfarmers:WES.AX
+Food:Brazil:JBS S.A.:JBSS3.SA
+Manufacturing:Canada:Magna International:MG.TO
+Manufacturing:France:Renault:RNO.PA
+Manufacturing:Germany:Siemens:SIE.DE
+Manufacturing:Italy:Leonardo S.p.A.:LDO.MI
+Manufacturing:Japan:Sony:SONY
+Manufacturing:United Kingdom:Rio Tinto Group:RIO
+Manufacturing:United States:John Deere:DE
+Manufacturing:Singapore:FLEX:FLEX
+Manufacturing:Australia:BHP:BHP.AX
+Manufacturing:Brazil:Vale:VALE

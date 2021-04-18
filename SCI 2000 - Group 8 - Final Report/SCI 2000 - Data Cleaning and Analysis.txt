@@ -1,0 +1,362 @@
+#SCI 2000 - Final Report - Group 8
+#Erik Huebner, Isham Behl, Muhammad Bilal Sheikh
+#Professor Max Turgeon
+#April 16, 2020
+
+setwd("C:\\Users\\Erik\\Documents\\University\\My Classes\\SCI 2000 - Intro to Data Science\\Project")
+options(scipen=999)
+
+library(data.table)
+library(tidyverse)
+library(factoextra)
+library(scatterplot3d)
+library(broom)
+
+############################## Data Preparation ##############################
+#read in the files
+annualFinancials = read_delim("annualFinancials.csv", ";")
+quarterlyFinancials = read_delim("quarterlyFinancials.csv", ";")
+stockPrices = read_delim("stockPrices.csv", ";")
+casesGlobal = read_csv("time_series_covid19_confirmed_global.csv")
+deathsGlobal = read_csv("time_series_covid19_deaths_global.csv")
+
+#rename variables for convenience
+newNames1 = names(annualFinancials)
+newNames2 = names(quarterlyFinancials)
+newNames3 = names(stockPrices)
+newNames1[3:5] = c("2020", "2019", "2018")
+newNames2[3:6] = c("Q1_2021", "Q4_2020", "Q3_2020", "Q2_2020")
+newNames3[5:6] = c("Close", "Adjusted_Close")
+names(annualFinancials) = newNames1
+names(quarterlyFinancials) = newNames2
+names(stockPrices) = newNames3
+
+#filter out placeholder rows and columns
+annualFinancials = filter(annualFinancials, Breakdown != "Operating Expenses")
+quarterlyFinancials = filter(quarterlyFinancials, Breakdown != "Operating Expenses")
+stockPrices = filter(stockPrices, !str_detect(stockPrices$Open, "Dividend|Stock Split"))
+stockPrices = stockPrices[-c(2,3,4,6)] # exclude open, high, low, and adjusted close - all we need is closing price
+
+#replace "-" with 0, removes commas from financials statements, then convert to numeric and convert date strings to date types
+annualFinancials = mutate(annualFinancials, ttm = str_replace_all(ttm, "-", "0"), 
+    '2020' = str_replace_all(annualFinancials$'2020', "-", "0"), 
+    '2019' = str_replace_all(annualFinancials$'2019', "-", "0"), 
+    '2018' = str_replace_all(annualFinancials$'2018', "-", "0"))
+annualFinancials = mutate(annualFinancials, ttm = as.numeric(str_replace_all(ttm, ",", "")), 
+    '2020' = as.numeric(str_replace_all(annualFinancials$'2020', ",", "")), 
+    '2019' = as.numeric(str_replace_all(annualFinancials$'2019', ",", "")), 
+    '2018' = as.numeric(str_replace_all(annualFinancials$'2018', ",", "")))
+quarterlyFinancials = mutate(quarterlyFinancials, ttm = str_replace_all(ttm, "-", "0"), 
+    Q1_2021 = str_replace_all(Q1_2021, "-", "0"), 
+    Q4_2020 = str_replace_all(Q4_2020, "-", "0"), 
+    Q3_2020 = str_replace_all(Q3_2020, "-", "0"), 
+    Q2_2020 = str_replace_all(Q2_2020, "-", "0"))
+quarterlyFinancials = mutate(quarterlyFinancials, ttm = as.numeric(str_replace_all(ttm, ",", "")), 
+    Q1_2021 = as.numeric(str_replace_all(Q1_2021, ",", "")), 
+    Q4_2020 = as.numeric(str_replace_all(Q4_2020, ",", "")), 
+    Q3_2020 = as.numeric(str_replace_all(Q3_2020, ",", "")), 
+    Q2_2020 = as.numeric(str_replace_all(Q2_2020, ",", "")))
+stockPrices = mutate(stockPrices, Close = as.numeric(str_replace_all(Close, ",", "")))
+stockPrices = mutate(stockPrices, Date = str_replace_all(stockPrices$Date, "[,.]", ""))
+stockPrices = mutate(stockPrices, Date = as.Date(stockPrices$Date, "%b %d %Y"))
+
+#convert all currencies to CAD
+conversionRates = read_delim("conversions.txt", ";")
+conversionRates = mutate(conversionRates, Conversion_Rate = as.numeric(Conversion_Rate))
+
+annualFinancials = inner_join(annualFinancials, conversionRates, by = "Company_Code")
+quarterlyFinancials = inner_join(quarterlyFinancials, conversionRates, by = "Company_Code")
+stockPrices = inner_join(stockPrices, conversionRates, by = "Company_Code")
+
+annualFinancials = mutate(annualFinancials, ttm = ttm/Conversion_Rate, '2020' = round(annualFinancials$'2020'/Conversion_Rate),
+                                                                    '2019' = round(annualFinancials$'2019'/Conversion_Rate),
+                                                                    '2018' = round(annualFinancials$'2018'/Conversion_Rate))
+quarterlyFinancials = mutate(quarterlyFinancials, ttm = ttm/Conversion_Rate, Q1_2021 = round(Q1_2021/Conversion_Rate),
+                                                                    Q4_2020 = round(Q4_2020/Conversion_Rate),
+                                                                    Q3_2020 = round(Q3_2020/Conversion_Rate),
+                                                                    Q2_2020 = round(Q2_2020/Conversion_Rate))
+stockPrices = mutate(stockPrices, Close = Close/Conversion_Rate)
+
+#create the return column to normalize stock prices across companies
+i = 1
+for(company in c(levels(factor(stockPrices$Company_Code)))){
+    tempStocks = filter(stockPrices, Company_Code == company)
+
+    temp = tempStocks$Close
+    temp = temp[2:length(temp)]
+    temp = c(temp, 0)
+    tempStocks = mutate(tempStocks, Return = ((Close - temp)/(temp))*100)
+    tempStocks = tempStocks[1:(nrow(tempStocks) - 1),]
+
+    if(i == 1){newStocks = tempStocks}
+    else{newStocks = rbind(newStocks, tempStocks)}
+    i = i + 1
+}
+stockPrices = newStocks
+
+#turn the quarterly financial data into a time series dataset
+#since different data is available for different companies, keep only common line items.
+keepCols = c("Total Revenue", "Interest Expense", "Income Before Tax", "Income Tax Expense", "Income from Continuing Operations", "Net Income", "Net Income available to common shareholders")
+
+i = 1
+for(companyCode in c(levels(factor(quarterlyFinancials$Company_Code)))){
+    temp = filter(quarterlyFinancials, Company_Code == companyCode & Breakdown %in% keepCols)
+
+    if(nrow(temp) == 7){
+        companyName = toString(temp[1,10])
+        industry = toString(temp[1,8])
+        country = toString(temp[1,9])
+
+        for(col in 3:6){
+            dateVal = toString(names(temp)[col])
+            tempRow = temp[,c(1,col)]
+
+            tempRow = data.table::transpose(tempRow)
+            tempRow = cbind(data.frame(c("Date", dateVal)), tempRow, data.frame(c("Country", country)), data.frame(c("Industry", industry)), data.frame(c("Company_Name", companyName)), data.frame(c("Company_Code", companyCode)))
+            names(tempRow) = tempRow[1,]
+            tempRow = tempRow[2,]
+            row.names(tempRow) = 1
+
+            if(i == 1){newDataFrame = tempRow}
+            else{newDataFrame = rbind(newDataFrame, tempRow)}
+            i = i + 1
+        }
+    }
+}
+row.names(newDataFrame) = c(1:nrow(newDataFrame))
+for(col in 2:8){newDataFrame[,col] = as.numeric(newDataFrame[,col])}
+names(newDataFrame) = str_replace_all(names(newDataFrame), " ", "_")
+timeSeriesQuarterlyFinancials = newDataFrame
+
+#turn the annual financial data into a time series dataset
+i = 1
+for(companyCode in c(levels(factor(annualFinancials$Company_Code)))){
+    temp = filter(annualFinancials, Company_Code == companyCode & Breakdown %in% keepCols)
+
+    if(nrow(temp) == 7){
+        companyName = toString(temp[1,9])
+        industry = toString(temp[1,7])
+        country = toString(temp[1,8])
+
+        for(col in 3:5){
+            dateVal = toString(names(temp)[col])
+            tempRow = temp[,c(1,col)]
+
+            tempRow = data.table::transpose(tempRow)
+            tempRow = cbind(data.frame(c("Date", dateVal)), tempRow, data.frame(c("Country", country)), data.frame(c("Industry", industry)), data.frame(c("Company_Name", companyName)), data.frame(c("Company_Code", companyCode)))
+            names(tempRow) = tempRow[1,]
+            tempRow = tempRow[2,]
+            row.names(tempRow) = 1
+
+            if(i == 1){newDataFrame = tempRow}
+            else{newDataFrame = rbind(newDataFrame, tempRow)}
+            i = i + 1
+        }
+    }
+}
+row.names(newDataFrame) = c(1:nrow(newDataFrame))
+for(col in 2:8){newDataFrame[,col] = as.numeric(newDataFrame[,col])}
+names(newDataFrame) = str_replace_all(names(newDataFrame), " ", "_")
+timeSeriesAnnualFinancials = newDataFrame
+
+#convert quarter labels to date types for quarterly time series
+for(i in 1:nrow(timeSeriesQuarterlyFinancials)){
+    if(timeSeriesQuarterlyFinancials[i,1] == "Q1_2021"){timeSeriesQuarterlyFinancials[i,1] = "2021-03-30"}
+    else if (timeSeriesQuarterlyFinancials[i,1] == "Q4_2020"){timeSeriesQuarterlyFinancials[i,1] = "2020-12-30"}
+    else if (timeSeriesQuarterlyFinancials[i,1] == "Q3_2020"){timeSeriesQuarterlyFinancials[i,1] = "2020-09-30"}
+    else {timeSeriesQuarterlyFinancials[i,1] = "2020-06-30"}}
+timeSeriesQuarterlyFinancials[,1] = as.Date(timeSeriesQuarterlyFinancials[,1])
+
+#convert annual labels to date types for annual time series
+for(i in 1:nrow(timeSeriesAnnualFinancials)){
+    if(timeSeriesAnnualFinancials[i,1] == "2020"){timeSeriesAnnualFinancials[i,1] = "2020-12-31"}
+    else if (timeSeriesAnnualFinancials[i,1] == "2019"){timeSeriesAnnualFinancials[i,1] = "2019-12-31"}
+    else {timeSeriesAnnualFinancials[i,1] = "2018-12-31"}}
+timeSeriesAnnualFinancials[,1] = as.Date(timeSeriesAnnualFinancials[,1])
+
+
+########################################## Preparing Covid Data ##########################################
+
+#remove province, latitute and longitude, and rename country variable
+casesGlobal = select(casesGlobal, -c(1,3,4))
+deathsGlobal = select(deathsGlobal, -c(1,3,4))
+temp = names(casesGlobal)
+temp[1] = "Country"
+names(casesGlobal) = temp
+temp = names(deathsGlobal)
+temp[1] = "Country"
+names(deathsGlobal) = temp
+
+#change US to United States
+casesGlobal = mutate(casesGlobal, Country = if_else(Country == "US", "United States", Country))
+deathsGlobal = mutate(deathsGlobal, Country = if_else(Country == "US", "United States", Country))
+
+#define a function which groups covid data by country so there is one row per country
+groupByCountry = function(dataset){
+    i = 1
+    while(i <= nrow(dataset)){
+        check = dataset[i,1]
+        allRows = filter(dataset, Country == toString(check))
+        adjust = nrow(allRows)
+        allNums = allRows[,-c(1)]
+        newRow = cbind(check, data.table::transpose(data.frame(colSums(allNums))))
+        names(newRow) = names(dataset)
+
+        if(i == 1){newDataFrame = newRow}
+        else{newDataFrame = rbind(newDataFrame, newRow)}
+        i = i + adjust
+    }
+
+    return(newDataFrame)
+}
+
+casesGlobal = groupByCountry(casesGlobal)
+deathsGlobal = groupByCountry(deathsGlobal)
+
+#takes a covid dataset and turns it into a time-series based one
+makeTimeSeries = function(dataset){
+    #transpose the data to turn dates into values and countries into variables
+    newDataFrame = data.table::transpose(dataset) 
+
+    #make the country values into column headers, then remove that row
+    row.names(newDataFrame) = names(dataset)
+    newDataFrame = cbind(row.names(newDataFrame), newDataFrame)
+    names(newDataFrame) = newDataFrame[1,]
+    newDataFrame = newDataFrame[2:nrow(newDataFrame),]
+    newColNames = names(newDataFrame)
+    newColNames[1] = "Date"
+    names(newDataFrame) = newColNames
+    row.names(newDataFrame) = c(1:nrow(newDataFrame))
+
+    return(newDataFrame)
+}
+
+timeSeriesCases = makeTimeSeries(casesGlobal)
+timeSeriesDeaths = makeTimeSeries(deathsGlobal)
+
+#convert string Dates to date types
+timeSeriesCases = mutate(timeSeriesCases, Date = as.Date(timeSeriesCases$Date, "%m/%d/%y"))
+timeSeriesDeaths = mutate(timeSeriesDeaths, Date = as.Date(timeSeriesCases$Date, "%m/%d/%y"))
+
+#convert all non-date columns to numerics
+for(i in 2:ncol(timeSeriesCases)){
+    timeSeriesCases[,i] = as.numeric(timeSeriesCases[,i])}
+for(i in 2:ncol(timeSeriesDeaths)){
+    timeSeriesDeaths[,i] = as.numeric(timeSeriesDeaths[,i])}
+
+#define a function which adds country based and worldwide covid totals to each row of a time-series dataset
+addCovidData = function(dataset, timeCases, timeDeaths){
+    #tally global deaths over time
+    allDeaths = select(timeDeaths, c(1,2))
+    allDeaths[,2] = rowSums(timeDeaths[,2:ncol(timeDeaths)])
+    names(allDeaths) = c("Date", "Global_Deaths")
+
+    #tally global cases over time
+    allCases = select(timeCases, c(1,2))
+    allCases[,2] = rowSums(timeCases[,2:ncol(timeCases)])
+    names(allCases) = c("Date", "Global_Cases")
+
+    #loop through each country to calculate totals
+    i = 1
+    for(country in c(levels(factor(dataset$Country)))){
+        #get all rows from the dataset corresponding to that country
+        tempRows = filter(dataset, Country == country)
+
+        #join cases and deaths on date
+        tempCases = select(timeCases, c('Date', country))
+        tempDeaths = select(timeDeaths, c('Date', country))
+        names(tempCases) = c("Date", "Cases")
+        names(tempDeaths) = c("Date", "Deaths")
+
+        tempCounts = inner_join(tempCases, tempDeaths, by = "Date")
+        names(tempCounts) = c("Date", "Cases", "Deaths")
+        joined = inner_join(tempRows, tempCounts, by = "Date")
+        joined = inner_join(joined, allCases, by = "Date")
+        joined = inner_join(joined, allDeaths, by = "Date")
+
+        if(i == 1){newDataset = joined}
+        else{newDataset = rbind(newDataset, joined)}
+        i = i + 1
+    }
+
+    newDataset = mutate(newDataset, Cases = as.numeric(Cases))
+    newDataset = mutate(newDataset, Deaths = as.numeric(Deaths))
+    newDataset = mutate(newDataset, Global_Deaths = as.numeric(Global_Deaths))
+    newDataset = mutate(newDataset, Global_Cases = as.numeric(Global_Cases))
+
+    return(newDataset)
+}
+
+#add the covid data to time series annual financial statements and stock prices
+stockPrices = addCovidData(stockPrices, timeSeriesCases, timeSeriesDeaths)
+timeSeriesQuarterlyFinancials = addCovidData(timeSeriesQuarterlyFinancials, timeSeriesCases, timeSeriesDeaths)
+
+################################ Initial Analysis #########################################
+
+#tally global deaths over time
+allDeaths = select(timeSeriesDeaths, c(1,2))
+allDeaths[,2] = rowSums(timeSeriesDeaths[,2:ncol(timeSeriesDeaths)])
+names(allDeaths) = c("Date", "Global_Deaths")
+
+#tally global cases over time
+allCases = select(timeSeriesCases, c(1,2))
+allCases[,2] = rowSums(timeSeriesCases[,2:ncol(timeSeriesCases)])
+names(allCases) = c("Date", "Global_Cases")
+
+#plot cases and deaths over time
+ggplot(data = allDeaths, aes(x=Date,y=Global_Deaths)) + geom_point()
+ggplot(data = allCases, aes(x=Date,y=Global_Cases)) + geom_point()
+
+#do the principal component analysis
+data = timeSeriesAnnualFinancials[,2:8] #take only numerical data
+pca = prcomp(data, scale = TRUE) #run the pca function
+fviz_eig(pca) #visualize variance explainable by principal components
+fviz_pca_biplot(pca, col.var = "#2F8CD6", col.ind = "#FFFFFF") #visualize principal components
+
+#data = filter(timeSeriesAnnualFinancials, Company_Code != "MUFG" & Company_Code != "ITUB" & Company_Code != "JPM" & Company_Code != "HSBC")
+data = filter(timeSeriesAnnualFinancials, Company_Code != "MUFG" & Company_Code != "ITUB" & Company_Code != "LTM.SN" & Company_Code !=  "500.SI")
+data = select(data, c("Total_Revenue", "Interest_Expense", "Income_Tax_Expense", "Industry"))
+
+#create a color list
+colorPallate = c("#FF2D00", "#51D62F", "#2F8CD6", "#F7BB0F", "#BF0FF7")
+industries = c("Finance", "Energy", "Food", "Manufacturing", "Tourism")
+colors = rep("", nrow(data))
+for(i in 1:nrow(data)){colors[i] = colorPallate[match(data[i,4], industries)]}
+
+#take the log of the selected variables
+logInterest = log(data$Interest_Expense)
+logRevenue = log(data$Total_Revenue)
+logTax = log(data$Income_Tax_Expense)
+
+#graph the selected log variables
+scatterplot3d(x = logRevenue, y = logInterest, z = logTax, color = colors, tick.marks = FALSE, pch = 16, xlab = "Total Revenue", ylab = "Interest Expense", zlab = "Income Tax Expense")
+scatterplot3d(x = logInterest, y = logTax, z = logRevenue, color = colors, tick.marks = FALSE, pch = 16, xlab = "Interest Expense", ylab = "Income Tax Expense", zlab = "Total Revenue")
+scatterplot3d(x = logTax, y = logRevenue, z = logInterest, color = colors, tick.marks = FALSE, pch = 16, xlab = "Income Tax Expense", ylab = "Interest Expense", zlab = "Total Revenue")
+
+###################################### Regression Plots #############################################
+
+for(industry in levels(factor(stockPrices$Industry))){
+    data = filter(stockPrices, Industry == industry)
+    model = lm(Return ~ Global_Deaths + Date, data = data)
+    print(industry)
+    print(model)
+    print(confint(model))
+    print((ggplot(data = data, aes(x = Global_Deaths, y = Return)) + geom_point() + ylim(-50,50) + ggtitle(toString(industry))))
+    print((ggplot(data = augment(model), aes(x = .fitted, y = .resid)) + geom_point() + ggtitle(paste0(toString(industry), " - Residuals")) + ylim(-50,50)))
+}
+
+revenueModel = lm(Total_Revenue ~ Deaths, data = timeSeriesQuarterlyFinancials)
+interestModel = lm(Interest_Expense ~ Deaths, data = timeSeriesQuarterlyFinancials)
+taxModel = lm(Income_Tax_Expense ~ Deaths, data = timeSeriesQuarterlyFinancials)
+
+revenueModel
+confint(revenueModel)
+interestModel
+confint(interestModel)
+taxModel
+confint(taxModel)
+
+ggplot(data = augment(revenueModel), aes(x=.fitted,y=.resid)) + geom_point() + ggtitle("Total Revenue")
+ggplot(data = augment(taxModel), aes(x=.fitted,y=.resid)) + geom_point() + ggtitle("Income Tax Expense")
+
+ggplot(data = stockPrices, aes(x=Date, y=Return)) + geom_point() + ylim(-100,100)

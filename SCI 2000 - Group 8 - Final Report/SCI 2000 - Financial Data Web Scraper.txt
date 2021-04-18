@@ -1,0 +1,215 @@
+#for this code to work, Docker must be installed and running on the computer
+
+library(data.table)
+library(tidyverse)
+library(rvest)
+library(RSelenium)
+
+getFinancials = function(rawString, htmlData, code, industry, country, companyName, quarter){
+    #if quarterly data is collected, get 6 columns, for annual data get 5 columns
+    if(quarter){minRows = 6}
+    else{minRows = 5}
+
+    allElems = str_extract_all(rawString, "<span data-reactid=\"[0-9]+\">.{1,30}\\s*</span>|data-reactid=\"[0-9]+\">.{0,5}\\s*</div>|<span>.{1,30}</span|data-test=\"fin-col\">-</div")[[1]]
+    allElems = allElems[str_detect(allElems, "\\S+")]
+	allSides = html_elements(htmlData, xpath = "//*[@class='Va(m)']")
+
+    headers = html_elements(htmlData, xpath = "//*[@class='D(tbhg)']/div")
+    if(!is.na(headers)){
+        headers = headers[[1]]
+
+        nCols = str_count(toString(headers), "class=\"D\\(ib\\)|div class=\"Ta\\(c\\)")
+        nRows = length(str_extract_all(rawString, "rw-expnded")[[1]])
+
+        currElem = 1
+        newDataFrame = data.frame()
+        skip = FALSE
+        stop = FALSE
+    }
+    else{
+        nCols = -1
+    }
+
+    if(nCols < minRows){
+        newDataFrame = data.frame()
+    }
+    else{
+        for (i in 1:nRows){
+            newRow = c()
+            adjust = 0
+            skip = FALSE
+            
+            if(i > 1){
+                newRow[1] = str_replace_all(str_replace_all(str_extract(toString(allSides[i-1]), ">.*<"), "<", ""), ">", "")
+                adjust = 1
+            }
+
+            if(length(newRow) != 0){
+                if(newRow[1] == "Basic EPS"){
+                    stop = TRUE}
+                if(newRow[1] == "Operating Expenses"){
+                    for(j in 2:nCols){
+                        newRow[j] = ""
+                        skip = TRUE}
+                }
+            }
+            
+            if(!stop){
+                if(!skip){
+                    for (j in 1:(nCols - adjust)){
+                        newElem = str_replace_all(str_replace_all(str_extract(allElems[currElem], ">.*<"), "<", ""), ">", "")
+                        currElem = currElem + 1
+
+                        while((!is.na(str_detect(newElem, "\\S+"))) & (!str_detect(newElem, "\\S+"))){
+                            newElem = str_replace_all(str_replace_all(str_extract(allElems[currElem], ">.*<"), "<", ""), ">", "")
+                            currElem = currElem + 1
+                        }
+
+                        newRow[j + adjust] = newElem  
+                    }
+                }
+                
+                if(length(newDataFrame) == 0){
+                    newDataFrame = data.frame(newRow)}
+                else{
+                    newDataFrame = cbind(newDataFrame, newRow)}
+            }
+        }
+
+        #if the most recent data is from 2019, not 2020/21, or if the data was not found, exclude the company from the dataset
+        if((length(newDataFrame) < minRows) | (str_detect(newDataFrame[1,3], "^2019"))){
+            newDataFrame = data.frame()
+        }
+        else{
+            newDataFrame = data.table::transpose(newDataFrame)
+            names(newDataFrame) = newDataFrame[1,]
+            newDataFrame = newDataFrame[2:length(newDataFrame[,1]),]
+            newDataFrame = select(newDataFrame, 1:as.integer(minRows))
+
+            newDataFrame = mutate(newDataFrame, Company_Code = code)    
+            newDataFrame = mutate(newDataFrame, Industry = industry)
+            newDataFrame = mutate(newDataFrame, Country = country)
+            newDataFrame = mutate(newDataFrame, Company_Name = companyName)
+        }
+    }
+
+    return(newDataFrame)
+}
+
+shell('docker run -d -p 4445:4444 selenium/standalone-firefox')
+driver = remoteDriver(remoteServerAddr = "localhost", port = 4445L, browserName = "firefox")
+driver$open()
+
+setwd("D:\\Documents\\University\\new term\\SCI 2000\\Project")
+companies = read_delim("companies.txt", delim = ":")
+
+codes = companies$`Company Code`
+industries = companies$Industry
+countries = companies$Country
+companyNames = companies$`Company Name`
+
+init = FALSE
+init2 = FALSE
+
+for(i in 1:length(codes)){
+	code = codes[i]
+	industry = industries[i]
+	country = countries[i]
+	companyName = companyNames[i]
+
+	url = paste0("https://ca.finance.yahoo.com/quote/", code ,"/financials?p=", code)
+	driver$navigate(url)
+
+	#get annual financial statements
+	rawReturn = driver$findElement(using = "xpath", value = "//*[@id='Col1-1-Financials-Proxy']/section/div[3]/div[1]/div")
+	rawHtml = rawReturn$getElementAttribute("innerHTML")
+	rawString = toString(rawHtml[1])
+	htmlData = read_html(rawString)
+
+	if((!init) | (i == 1)){
+		annualFinancials = getFinancials(rawString, htmlData, code, industry, country, companyName, quarter = FALSE)
+
+		#if 2020 data couldnt be found, don't initialize the return data frame
+		if(length(annualFinancials) == 0){
+			annualFinancials = data.frame()
+		}
+		else{
+			init = TRUE
+		}
+	}
+	else{
+		newFrame = getFinancials(rawString, htmlData, code, industry, country, companyName, quarter = FALSE)
+
+		if(length(newFrame) != 0){
+			names(newFrame) = names(annualFinancials)
+			annualFinancials = rbind(annualFinancials, newFrame)
+		}
+	}
+ 	
+	#click until you get to the quarterly reports
+	moved = FALSE
+	while(!moved){
+		button = driver$findElement(using = "xpath", value = "//*[@id='Col1-1-Financials-Proxy']/section/div[1]/div[2]/button")
+		button$clickElement()
+		Sys.sleep(0.5)
+		button = driver$findElement(using = "xpath", value = "//*[@id='Col1-1-Financials-Proxy']/section/div[1]/div[2]/button")
+		
+		checkString = toString(button$getElementAttribute("innerHTML")[[1]])
+		if(str_detect(checkString, "<span>Annual</span>")){
+			moved = TRUE
+		}
+	}
+	
+	#get the quarterly financial statements
+	rawReturn2 = driver$findElement(using = "xpath", value = "//*[@id='Col1-1-Financials-Proxy']/section/div[3]/div[1]/div")	
+	rawHtml2 = rawReturn2$getElementAttribute("innerHTML")
+	rawString2 = toString(rawHtml2[1])
+	htmlData2 = read_html(rawString2)
+
+	if((!init2) | (i == 1)){
+		quarterlyFinancials = getFinancials(rawString2, htmlData2, code, industry, country, companyName, quarter = TRUE)
+
+		#if 2020/21 data couldnt be found, don't initialize the return data frame
+		if(length(quarterlyFinancials) == 0){
+			quarterlyFinancials = data.frame()
+		}
+		else{
+			init2 = TRUE
+		}
+	}
+	else{
+		newFrame = getFinancials(rawString2, htmlData2, code, industry, country, companyName, quarter = TRUE)
+
+		if(length(newFrame) != 0){
+			names(newFrame) = names(quarterlyFinancials)
+			quarterlyFinancials = rbind(quarterlyFinancials, newFrame)
+		}
+	}
+
+	#get weekly stock prices from Dec 31st, 2019 to March 30, 2021
+	url = paste0("https://ca.finance.yahoo.com/quote/", code, "/history?period1=1577836800&period2=1617148800&interval=1wk&filter=history&frequency=1wk&includeAdjustedClose=true")
+	driver$navigate(url)
+
+	rawReturn = driver$findElement(using = "xpath", value = "//*[@id='Col1-1-HistoricalDataTable-Proxy']/section/div[2]")
+	stockTable = html_table(read_html(rawReturn$getElementAttribute("innerHTML")[[1]]))[[1]]
+
+	stockTable = mutate(stockTable, Company_Code = code)    
+    stockTable = mutate(stockTable, Industry = industry)
+    stockTable = mutate(stockTable, Country = country)
+    stockTable = mutate(stockTable, Company_Name = companyName)
+
+	if(i == 1){
+		stockPrices = stockTable
+	}
+	else{
+		stockPrices = rbind(stockPrices, stockTable)
+	}
+
+	Sys.sleep(5)
+	print(paste0("Finished ", companyName, "."))
+}
+
+stockPrices = filter(stockPrices, !str_detect(stockPrices$Date, "^*Close price adjusted for splits."))
+write_delim(stockPrices, "D:\\Documents\\University\\new term\\SCI 2000\\Project\\stockPrices.csv", delim = ";")
+write_delim(annualFinancials, "D:\\Documents\\University\\new term\\SCI 2000\\Project\\annualFinancials.csv", delim = ";")
+write_delim(quarterlyFinancials, "D:\\Documents\\University\\new term\\SCI 2000\\Project\\quarterlyFinancials.csv", delim = ";")
