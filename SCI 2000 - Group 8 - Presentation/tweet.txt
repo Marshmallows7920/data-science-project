@@ -1,0 +1,1 @@
+We did an analysis on how COVID19 has impacted the world’s economy. The CSSEGIS data repository and Yahoo finance was used. We conclude that expectation, not reality was the main driver of global economic conditions during the pandemic and not the actual COVID cases or deaths.
